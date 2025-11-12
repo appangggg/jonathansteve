@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spreadsheet JSA - Tambak Udang</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+        
+        /* Sel yang bisa diedit */
+        .editable-cell {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #f9f9f9;
+            min-width: 100px;
+            transition: all 0.2s ease-in-out;
+            min-height: 42px; /* Menyamakan tinggi */
+        }
+        .editable-cell:focus {
+            outline: 2px solid #3b82f6; /* Tailwind blue-500 */
+            background-color: #fff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        
+        /* Styling tabel */
+        th, td {
+            border: 1px solid #e2e8f0; /* Tailwind gray-200 */
+            padding: 0; 
+            vertical-align: middle; /* Pusatkan secara vertikal */
+        }
+        td {
+            padding: 4px; /* Beri sedikit padding di luar div */
+        }
+        th {
+            padding: 10px 12px;
+            background-color: #f1f5f9; /* Tailwind gray-100 */
+            font-weight: 600;
+            text-align: left;
+        }
+        
+        /* Kelas untuk level risiko (Otomatis via JS) */
+        .risk-sedang {
+            background-color: #fef9c3; /* yellow-100 */
+            color: #a16207; /* yellow-700 */
+            font-weight: 500;
+        }
+        .risk-rendah {
+            background-color: #dcfce7; /* green-100 */
+            color: #15803d; /* green-700 */
+            font-weight: 500;
+        }
+        .risk-tinggi {
+            background-color: #fee2e2; /* red-100 */
+            color: #b91c1c; /* red-700 */
+            font-weight: 500;
+        }
+
+        /* Styling Tombol */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-green { background-color: #10b981; color: white; } /* emerald-500 */
+        .btn-green:hover { background-color: #059669; }
+        .btn-blue { background-color: #3b82f6; color: white; } /* blue-500 */
+        .btn-blue:hover { background-color: #2563eb; }
+        .btn-red-icon {
+            background-color: #fee2e2; /* red-100 */
+            color: #b91c1c; /* red-700 */
+            padding: 6px;
+            border-radius: 99px; /* Circle */
+        }
+        .btn-red-icon:hover { background-color: #fecaca; } /* red-200 */
+
+        /* Sembunyikan elemen saat cetak */
+        @media print {
+            .no-print {
+                display: none;
+            }
+            body {
+                padding: 0;
+                background-color: #fff;
+            }
+            .printable-area {
+                box-shadow: none;
+                border: none;
+                max-width: 100%;
+                margin: 0;
+            }
+            .editable-cell {
+                border: 1px solid #ccc;
+                background-color: #fff;
+                padding: 6px 10px;
+                color: #000;
+            }
+            /* Pastikan warna risiko tetap tercetak */
+            .risk-sedang { background-color: #fef9c3 !important; color: #a16207 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .risk-rendah { background-color: #dcfce7 !important; color: #15803d !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .risk-tinggi { background-color: #fee2e2 !important; color: #b91c1c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 sm:p-6 md:p-8">
+    <div class="max-w-7xl mx-auto bg-white shadow-xl rounded-lg overflow-hidden printable-area">
+        <!-- Header Spreadsheet -->
+        <div class="p-5 sm:p-6 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">JOB SAFETY ANALYSIS (JSA)</h1>
+                <p class="mt-2 text-md text-gray-600">Aktivitas: Budidaya Udang Vaname</p>
+            </div>
+            <!-- Tombol Aksi -->
+            <div class="flex gap-2 mt-4 sm:mt-0 no-print">
+                <button onclick="printJSA()" class="btn btn-blue">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    Cetak JSA
+                </button>
+                <button onclick="addJsaRow()" class="btn btn-green">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Tambah Baris
+                </button>
+            </div>
+        </div>
+        
+        <!-- Info Dokumen yang Bisa Diedit -->
+        <div class="p-5 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Lokasi:</label>
+                <div contenteditable="true" class="editable-cell mt-1">Tambak Udang Vaname</div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Nama Karyawan:</label>
+                <div contenteditable="true" class="editable-cell mt-1">(isi nama kamu)</div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Tanggal Pelaksanaan:</label>
+                <div contenteditable="true" class="editable-cell mt-1">12 November 2025</div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">NIM/ID:</label>
+                <div contenteditable="true" class="editable-cell mt-1">(isi ID kamu)</div>
+            </div>
+        </div>
+
+        <!-- Tabel Spreadsheet JSA -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="w-1/12 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
+                        <th class="w-2/12 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Step</th>
+                        <th class="w-2/12 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Potential Hazard</th>
+                        <th class="w-2/12 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Possible Consequences</th>
+                        <th class="w-1/12 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk Level</th>
+                        <th class="w-4/12 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Control / Preventive Measures</th>
+                        <th class="w-1/12 px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider no-print">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="jsa-table-body" class="bg-white divide-y divide-gray-200">
+                    <!-- Baris 1 -->
+                    <tr>
+                        <td><div contenteditable="true" class="editable-cell">1</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Pengecekan kualitas air tambak</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Tergelincir di tepi tambak, bahan kimia</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Jatuh ke tambak, terpapar bahan kimia</div></td>
+                        <td><div contenteditable="true" class="editable-cell risk-sedang" oninput="updateRiskClass(this)">Sedang</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Gunakan sepatu anti slip, APD saat dosis bahan kimia, pasang tanda peringatan</div></td>
+                        <td class="text-center no-print"><button onclick="deleteRow(this)" class="btn-red-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></td>
+                    </tr>
+                    <!-- Baris 2 -->
+                    <tr>
+                        <td><div contenteditable="true" class="editable-cell">2</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Penebaran benur (bibit udang)</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Terjatuh, terkena air dingin</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Luka ringan, hipotermia</div></td>
+                        <td><div contenteditable="true" class="editable-cell risk-rendah" oninput="updateRiskClass(this)">Rendah</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Lakukan secara hati-hati, gunakan latex gloves, hindari tergesa-gesa</div></td>
+                        <td class="text-center no-print"><button onclick="deleteRow(this)" class="btn-red-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></td>
+                    </tr>
+                    <!-- Baris 3 -->
+                    <tr>
+                        <td><div contenteditable="true" class="editable-cell">3</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Pemberian pakan</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Tertusuk alat, terpeleset di pematang</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Luka tusuk, jatuh di area tambak</div></td>
+                        <td><div contenteditable="true" class="editable-cell risk-sedang" oninput="updateRiskClass(this)">Sedang</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Gunakan alat sesuai SOP, jaga kebersihan area kerja</div></td>
+                        <td class="text-center no-print"><button onclick="deleteRow(this)" class="btn-red-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></td>
+                    </tr>
+                    <!-- Baris 4 -->
+                    <tr>
+                        <td><div contenteditable="true" class="editable-cell">4</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Pengecekan dan penggantian kincir air</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Terjepit alat, kesetrum listrik</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Cedera tangan, tersengat listrik</div></td>
+                        <td><div contenteditable="true" class="editable-cell risk-tinggi" oninput="updateRiskClass(this)">Tinggi</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Matikan listrik dahulu, periksa alat sebelum digunakan, pakai sarung tangan</div></td>
+                        <td class="text-center no-print"><button onclick="deleteRow(this)" class="btn-red-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></td>
+                    </tr>
+                    <!-- Baris 5 -->
+                    <tr>
+                        <td><div contenteditable="true" class="editable-cell">5</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Panen udang</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Terluka alat panen, terpeleset di pematang</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Cedera ringan, tenggelam</div></td>
+                        <td><div contenteditable="true" class="editable-cell risk-tinggi" oninput="updateRiskClass(this)">Tinggi</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Latihan teknik panen, peralatan panen dicek sebelum digunakan, gunakan APD</div></td>
+                        <td class="text-center no-print"><button onclick="deleteRow(this)" class="btn-red-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></td>
+                    </tr>
+                    <!-- Baris 6 -->
+                    <tr>
+                        <td><div contenteditable="true" class="editable-cell">6</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Pengangkutan dan sortasi hasil panen</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Tertimpa wadah, kontak dengan es batu</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Cedera punggung, iritasi kulit</div></td>
+                        <td><div contenteditable="true" class="editable-cell risk-sedang" oninput="updateRiskClass(this)">Sedang</div></td>
+                        <td><div contenteditable="true" class="editable-cell">Susun wadah dengan benar, pakai gloves saat kontak dengan es batu</div></td>
+                        <td class="text-center no-print"><button onclick="deleteRow(this)" class="btn-red-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- Footer Bantuan -->
+        <div class="p-4 bg-gray-50 border-t border-gray-200">
+            <p class="text-sm text-gray-500 italic">Tips: Klik di dalam sel untuk mengedit. Level risiko akan berubah warna otomatis saat Anda mengetik "Tinggi", "Sedang", atau "Rendah".</p>
+        </div>
+    </div>
+
+    <script>
+        // Fungsi untuk memperbarui kelas warna berdasarkan teks
+        function updateRiskClass(element) {
+            const text = element.innerText.trim().toLowerCase();
+            // Hapus semua kelas risiko yang mungkin ada
+            element.classList.remove('risk-tinggi', 'risk-sedang', 'risk-rendah');
+            
+            if (text === 'tinggi') {
+                element.classList.add('risk-tinggi');
+            } else if (text === 'sedang') {
+                element.classList.add('risk-sedang');
+            } else if (text === 'rendah') {
+                element.classList.add('risk-rendah');
+            }
+        }
+
+        // Fungsi untuk menghapus baris
+        function deleteRow(button) {
+            // Dapatkan elemen <tr> terdekat dari tombol yang diklik dan hapus
+            button.closest('tr').remove();
+        }
+
+        // Fungsi untuk menambah baris baru
+        function addJsaRow() {
+            const tableBody = document.getElementById('jsa-table-body');
+            const newRow = document.createElement('tr');
+            
+            // Dapatkan nomor baris terakhir
+            const lastRow = tableBody.querySelector('tr:last-child');
+            let nextNum = 1;
+            if (lastRow) {
+                const lastNumCell = lastRow.querySelector('td:first-child .editable-cell');
+                const lastNum = parseInt(lastNumCell.innerText.trim(), 10);
+                if (!isNaN(lastNum)) {
+                    nextNum = lastNum + 1;
+                }
+            }
+
+            newRow.innerHTML = `
+                <td><div contenteditable="true" class="editable-cell">${nextNum}</div></td>
+                <td><div contenteditable="true" class="editable-cell"></div></td>
+                <td><div contenteditable="true" class="editable-cell"></div></td>
+                <td><div contenteditable="true" class="editable-cell"></div></td>
+                <td><div contenteditable="true" class="editable-cell" oninput="updateRiskClass(this)"></div></td>
+                <td><div contenteditable="true" class="editable-cell"></div></td>
+                <td class="text-center no-print"><button onclick="deleteRow(this)" class="btn-red-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></td>
+            `;
+            tableBody.appendChild(newRow);
+        }
+
+        // Fungsi untuk mencetak
+        function printJSA() {
+            window.print();
+        }
+    </script>
+
+</body>
+</html>
